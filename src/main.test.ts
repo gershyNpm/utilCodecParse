@@ -1,5 +1,5 @@
 import { assertEqual, testRunner } from '../build/utils.test.ts';
-import './main.ts';
+import codecParse from './main.ts';
 
 // Type testing
 (async () => {
@@ -14,9 +14,29 @@ import './main.ts';
 
 testRunner([
   
-  { name: 'not implemented', fn: async () => {
+  { name: 'basic', fn: async () => {
     
-    // TODO: Implement!
+    const codec = {
+      type: 'rec',
+      props: {
+        a: { type: 'bln', map: v => v ? 'ya' : 'no' },
+        b: { type: 'num', map: v => `i love you times ${v.toString(10)}` }
+      }
+    } as const;
+    
+    try {
+    
+    assertEqual(
+      codecParse(codec, { a: true, b: 123 }),
+      { a: 'ya', b: 'i love you times 123' }
+    )
+    
+    } catch (err: any) {
+      
+      console.log('ARGS', err.args);
+      console.log(err.fn.toString());
+      
+    }
     
   }}
   
