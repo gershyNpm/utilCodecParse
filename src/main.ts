@@ -117,11 +117,11 @@ export default (codec: Codec.Registry, val: unknown) => {
         const { props } = codec;
         assert({
           desc: 'rec', chain, ctx,
-          args: { val, props },
-          fn: ({ val, props }) => true
+          args: { val, keys: props[cl.toArr]((v, k) => k) },
+          fn: ({ val, keys }) => true
             && cl.isCls(val, Object)
-            && val[cl.count]() === props[cl.count]()
-            && props[cl.toArr]((v, k) => k).every(k => val[cl.has](k))
+            && val[cl.count]() === keys[cl.count]()
+            && keys.every(k => val[cl.has](k))
         });
         return (val as Obj<any>)[cl.map]((v, k) => parse(props[k], v, [ ...chain, k ], ctx));
         
