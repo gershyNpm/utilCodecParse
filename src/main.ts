@@ -12,20 +12,22 @@ export namespace Codec {
   export type Rec<O extends Obj<Base>>    = Base & { type: 'rec',   map?: (val: { [K in keyof O]: Out<O[K]> }) => any, props: O };
   export type Enum<Opts extends string[]> = Base & { type: 'enum',  map?: (val: Opts[number])                  => any, opts: Opts };
   export type OneOf<Opts extends Base[]>  = Base & { type: 'oneOf', map?: (val: Out<Opts[number]>)             => any, opts: Opts };
+  export type Any                         = Base & { type: 'any',   map?: (val: any)                           => any };
 
   export type Out<C extends Base> = 0 extends 1
     ? never
-    : C extends Bln              ? boolean
-    : C extends Num              ? number
-    : C extends Str              ? string
-    : C extends Arr<infer I>     ? Out<I>[]
-    : C extends Map<infer I>     ? Obj<Out<I>>
-    : C extends Rec<infer O>     ? { [K in keyof O]: Out<O[K]> }
-    : C extends Enum<infer Opts> ? Opts[number]
-    : C extends OneOf<infer Opts>  ? Out<Opts[number]>
+    : C extends Bln               ? boolean
+    : C extends Num               ? number
+    : C extends Str               ? string
+    : C extends Arr<infer I>      ? Out<I>[]
+    : C extends Map<infer I>      ? Obj<Out<I>>
+    : C extends Rec<infer O>      ? { [K in keyof O]: Out<O[K]> }
+    : C extends Enum<infer Opts>  ? Opts[number]
+    : C extends OneOf<infer Opts> ? Out<Opts[number]>
+    : C extends Any               ? any
     : never;
   
-  export type Registry = Bln | Num | Str | Arr<any> | Map<any> | Rec<any> | Enum<any> | OneOf<any>;
+  export type Registry = Bln | Num | Str | Arr<any> | Map<any> | Rec<any> | Enum<any> | OneOf<any> | Any;
   
 };
 
@@ -148,9 +150,14 @@ export default (codec: Codec.Registry, val: unknown) => {
         
         return result;
         
+      } else if (codec.type === 'any') {
+        
+        return val;
+        
       }
       
-      throw Error('codec type unexpected')[cl.mod]({ codec });
+      type Assert<A, B extends A> = { a: A, b: B };
+      type J = Assert<never, typeof codec>;
       
     })();
     
