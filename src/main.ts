@@ -130,7 +130,7 @@ export default (codec: Codec.Registry, val: unknown) => {
       } else if (codec.type === 'oneOf') {
         
         const { opts } = codec;
-        const { result, opt } = (() => {
+        const { result, opt: _opt } = (() => {
           
           const errs: any[] = [];
           for (const opt of opts) {
@@ -158,6 +158,7 @@ export default (codec: Codec.Registry, val: unknown) => {
       
       type Assert<A, B extends A> = { a: A, b: B };
       type J = Assert<never, typeof codec>;
+      if (0) ((v?: J) => void 0)();
       
     })();
     

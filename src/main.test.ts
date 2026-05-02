@@ -1,5 +1,5 @@
 import { assertEqual, testRunner } from '../build/utils.test.ts';
-import codecParse from './main.ts';
+import codecParse, { type Codec } from './main.ts';
 
 // Type testing
 (async () => {
@@ -9,6 +9,7 @@ import codecParse from './main.ts';
   type Tests = {
     1: Enforce<{ x: 'y' }, { x: 'y' }>,
   };
+  if (0) ((v?: Tests) => void 0)();
   
 })();
 
@@ -29,7 +30,7 @@ testRunner([
     assertEqual(
       codecParse(codec, { a: true, b: 123 }),
       { a: 'ya', b: 'i love you times 123' }
-    )
+    );
     
     } catch (err: any) {
       
@@ -38,6 +39,31 @@ testRunner([
       
     }
     
-  }}
+  }},
+  
+  { name: 'recursive', fn: async () => {
+    
+    const codec: Codec.Registry = {
+      type: 'map',
+      item: { type: 'oneOf', opts: [ { type: 'str' } ] }
+    };
+    codec.item.opts.push(codec);
+    
+    assertEqual(
+      codecParse(codec, { a: 'a', b: 'b' }),
+      { a: 'a', b: 'b' }
+    );
+    assertEqual(
+      codecParse(codec, { a: 'a', b: { c: 'c' } }),
+      { a: 'a', b: { c: 'c' } }
+    );
+    assertEqual(
+      codecParse(codec, { a: 'a', b: { c: { d: { e: 'e' } } } }),
+      { a: 'a', b: { c: { d: { e: 'e' } } } }
+    );
+    
+    // TODO: Test a parsing failure like `{ a: 'a', b: { c: { d: { e: 1 } } } }`
+    
+  }},
   
 ]);
