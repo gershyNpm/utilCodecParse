@@ -25,19 +25,10 @@ testRunner([
       }
     } as const;
     
-    try {
-    
     assertEqual(
       codecParse(codec, { a: true, b: 123 }),
       { a: 'ya', b: 'i love you times 123' }
     );
-    
-    } catch (err: any) {
-      
-      console.log('ARGS', err.args);
-      console.log(err.fn.toString());
-      
-    }
     
   }},
   

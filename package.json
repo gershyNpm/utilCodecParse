@@ -1,6 +1,6 @@
 {
   "name": "@gershy/util-codec-parse",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "author": "Gershom Maes",
   "description": "TODO",
   "keywords": [
@@ -20,7 +20,7 @@
   ],
   "license": "ISC",
   "peerDependencies": {
-    "@gershy/clearing": "^0.0.41"
+    "@gershy/clearing": "^0.0.42"
   },
   "devDependencies": {
     "@types/node": "^24.10.1"

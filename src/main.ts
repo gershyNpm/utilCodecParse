@@ -5,7 +5,7 @@ export namespace Codec {
   export type Base = { type: string, map?: (val: any) => any };
   
   export type Bln                         = Base & { type: 'bln',   map?: (val: boolean)                       => any };
-  export type Num                         = Base & { type: 'num',   map?: (val: number)                        => any };
+  export type Num                         = Base & { type: 'num',   map?: (val: number)                        => any }; // TODO: minVal, maxVal
   export type Str                         = Base & { type: 'str',   map?: (val: string)                        => any, minLen?: number, maxLen?: number,  };
   export type Arr<I extends Base>         = Base & { type: 'arr',   map?: (val: Out<I>[])                      => any, minLen?: number, maxLen?: number, item: I };
   export type Map<I extends Base>         = Base & { type: 'map',   map?: (val: Obj<Out<I>>)                   => any, minLen?: number, maxLen?: number, item: I };
