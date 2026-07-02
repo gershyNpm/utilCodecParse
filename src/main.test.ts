@@ -6,8 +6,30 @@ import codecParse, { type Codec } from './main.ts';
   
   type Enforce<Provided, Expected extends Provided> = { provided: Provided, expected: Expected };
   
+  const codec1 = { type: 'str', map: (v: string) => v.length } as const;
+  const result1 = codecParse(codec1, 'aaa');
+  
+  const codec2 = {
+    type: 'rec',
+    props: {
+      a: { type: 'str', map: (v: string) => v.length },
+      b: { type: 'num', map: (v: number) => 'a'.repeat(v) },
+      c: { type: 'arr', item: { type: 'bln', map: (v: boolean) => v ? 'ya' : 'no' }, maxLen: 5 }
+    }
+  } as const;
+  const result2 = codecParse(codec2, {
+    a: 'hi',
+    b: 12,
+    c: [ true, false, true, false ]
+  });
+  
   type Tests = {
-    1: Enforce<{ x: 'y' }, { x: 'y' }>,
+    1: Enforce<typeof result1, number>,
+    2: Enforce<typeof result2, {
+      a: number,
+      b: string,
+      c: ('ya' | 'no')[]
+    }>
   };
   if (0) ((v?: Tests) => void 0)();
   

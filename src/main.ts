@@ -13,25 +13,42 @@ export namespace Codec {
   export type Enum<Opts extends string[]> = Base & { type: 'enum',  map?: (val: Opts[number])                  => any, opts: Opts };
   export type OneOf<Opts extends Base[]>  = Base & { type: 'oneOf', map?: (val: Out<Opts[number]>)             => any, opts: Opts };
   export type Any                         = Base & { type: 'any',   map?: (val: any)                           => any };
-
-  export type Out<C extends Base> = 0 extends 1
-    ? never
-    : C extends Bln               ? boolean
-    : C extends Num               ? number
-    : C extends Str               ? string
-    : C extends Arr<infer I>      ? Out<I>[]
-    : C extends Map<infer I>      ? Obj<Out<I>>
-    : C extends Rec<infer O>      ? { [K in keyof O]: Out<O[K]> }
-    : C extends Enum<infer Opts>  ? Opts[number]
-    : C extends OneOf<infer Opts> ? Out<Opts[number]>
-    : C extends Any               ? any
+  
+  export type Out<C extends Base> = 0 extends 1 ? never
+    : C extends { map: (val: any) => infer Mapped } ? Mapped
+    : C extends { type: infer T } ? T extends string ? ({ [K: keyof any]: never } & {
+        
+        bln:   boolean,
+        num:   number,
+        str:   string,
+        arr:   C extends { item:  infer I } ? I extends Base      ? Out<I>[]                      : never : never,
+        map:   C extends { item:  infer I } ? I extends Base      ? Obj<Out<I>>                   : never : never,
+        rec:   C extends { props: infer P } ? P extends Obj<Base> ? { [K in keyof P]: Out<P[K]> } : never : never,
+        enum:  C extends { opts:  infer O } ? O extends string[]  ? O[number]                     : never : never,
+        oneOf: C extends { opts:  infer O } ? O extends Base[]    ? Out<O[number]>                : never : never,
+        any:   any
+        
+      })[T] : never
     : never;
+  
+  // export type Out<C extends Base> = 0 extends 1 ? never
+  //   : C extends { map: (val: any) => infer Mapped } ? Mapped
+  //   : C extends Bln                                 ? boolean
+  //   : C extends Num                                 ? number
+  //   : C extends Str                                 ? string
+  //   : C extends Arr<infer I>                        ? Out<I>[]
+  //   : C extends Map<infer I>                        ? Obj<Out<I>>
+  //   : C extends Rec<infer O>                        ? { [K in keyof O]: Out<O[K]> }
+  //   : C extends Enum<infer Opts>                    ? Opts[number]
+  //   : C extends OneOf<infer Opts>                   ? Out<Opts[number]>
+  //   : C extends Any                                 ? any
+  //   : never;
   
   export type Registry = Bln | Num | Str | Arr<any> | Map<any> | Rec<any> | Enum<any> | OneOf<any> | Any;
   
 };
 
-export default (codec: Codec.Registry, val: unknown) => {
+export default <C extends Codec.Registry>(codec: C, val: unknown): Codec.Out<C> => {
   
   type AssertArgs<T> = {
     desc: string,
@@ -42,15 +59,8 @@ export default (codec: Codec.Registry, val: unknown) => {
   };
   const assert = <T>(args: AssertArgs<T>) => {
     
-    try {
-      
-      if (!args.fn(args.args)) throw Error('assert failed');
-      
-    } catch (err) {
-      
-      throw (err as Error)[cl.mod]({ codecParse: true, ...args });
-      
-    }
+    try         { if (!args.fn(args.args)) throw Error('assert failed');       }
+    catch (err) { throw (err as Error)[cl.mod]({ codecParse: true, ...args }); }
     
   };
   const parse = (codec: Codec.Registry, val: unknown, chain: string[], ctx: Obj<any>) => {
