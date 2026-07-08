@@ -9,7 +9,7 @@ export namespace Codec {
   export type Str                         = Base & { type: 'str',   map?: (val: string)                        => any, minLen?: number, maxLen?: number,  };
   export type Arr<I extends Base>         = Base & { type: 'arr',   map?: (val: Out<I>[])                      => any, minLen?: number, maxLen?: number, item: I };
   export type Map<I extends Base>         = Base & { type: 'map',   map?: (val: Obj<Out<I>>)                   => any, minLen?: number, maxLen?: number, item: I };
-  export type Rec<O extends Obj<Base>>    = Base & { type: 'rec',   map?: (val: { [K in keyof O]: Out<O[K]> }) => any, props: O };
+  export type Rec<O extends Obj<Base>>    = Base & { type: 'rec',   map?: (val: { [K in keyof O]: Out<O[K]> }) => any, props: O, loose?: boolean /* default false */ };
   export type Enum<Opts extends string[]> = Base & { type: 'enum',  map?: (val: Opts[number])                  => any, opts: Opts };
   export type OneOf<Opts extends Base[]>  = Base & { type: 'oneOf', map?: (val: Out<Opts[number]>)             => any, opts: Opts };
   export type Any                         = Base & { type: 'any',   map?: (val: any)                           => any };
@@ -126,14 +126,14 @@ export default <C extends Codec.Registry>(codec: C, val: unknown): Codec.Out<C> 
         
       } else if (codec.type === 'rec') {
         
-        const { props } = codec;
-        assert({
-          desc: 'rec', chain, ctx,
-          args: { val, keys: props[cl.toArr]((v, k) => k) },
-          fn: ({ val, keys }) => true
-            && cl.isCls(val, Object)
-            && val[cl.count]() === keys[cl.count]()
-            && keys.every(k => val[cl.has](k))
+        const { props, loose = false } = codec;
+        
+        const keys = props[cl.toArr]((v, k) => k);
+        
+        assert({ desc: 'rec', chain, ctx, args: { val, keys, loose }, fn: ({ val, keys, loose }) => true
+          && cl.isCls(val, Object)
+          && (loose || val[cl.count]() === keys[cl.count]())
+          && keys.every(k => val[cl.has](k))
         });
         return (val as Obj<any>)[cl.map]((v, k) => parse(props[k], v, [ ...chain, k ], ctx));
         
