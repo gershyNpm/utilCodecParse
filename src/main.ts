@@ -135,7 +135,13 @@ export default <C extends Codec.Registry>(codec: C, val: unknown): Codec.Out<C> 
           && (loose || val[cl.count]() === keys[cl.count]())
           && keys.every(k => val[cl.has](k))
         });
-        return (val as Obj<any>)[cl.map]((v, k) => parse(props[k], v, [ ...chain, k ], ctx));
+        return (val as Obj<any>)[cl.map]((v, k) => {
+          return props[cl.has](k)
+            // `k` is actually declared in `props`
+            ? parse(props[k], v, [ ...chain, k ], ctx)
+            // `k` isn't declared in `props` - `loose` must be set to `true`
+            : v;
+        });
         
       } else if (codec.type === 'oneOf') {
         
