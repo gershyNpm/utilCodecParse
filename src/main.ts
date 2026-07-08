@@ -16,6 +16,7 @@ export namespace Codec {
   
   export type Out<C extends Base> = 0 extends 1 ? never
     : C extends { map: (val: any) => infer Mapped } ? Mapped
+    : string extends C['type'] ? any                         // Short-circuit on broad types
     : C extends { type: infer T } ? T extends string ? ({ [K: keyof any]: never } & {
         
         bln:   boolean,
@@ -43,6 +44,18 @@ export namespace Codec {
   //   : C extends OneOf<infer Opts>                   ? Out<Opts[number]>
   //   : C extends Any                                 ? any
   //   : never;
+  
+  // // Reproduce the variance problem - minimal version from LambdaEdge
+  // class MinimalBase<Cdc extends Rec<any>> {
+  //   prop!: { invokeFn: (ctx: { args: Out<Cdc> }) => void };
+  // }
+  // 
+  // class MinimalChild extends MinimalBase<{ type: 'rec', props: {} }> {
+  //   prop = { invokeFn: (ctx: { args: Out<{ type: 'rec', props: {} }> }) => {} };
+  // }
+  // 
+  // const acceptBase = <T extends MinimalBase<any>>(x: T) => {};
+  // acceptBase(new MinimalChild());  // Error: args types incompatible (unknown vs {})
   
   export type Registry = Bln | Num | Str | Arr<any> | Map<any> | Rec<any> | Enum<any> | OneOf<any> | Any;
   
