@@ -16,7 +16,7 @@ export namespace Codec {
   
   export type Out<C extends Base> = 0 extends 1 ? never
     : C extends { map: (val: any) => infer Mapped } ? Mapped
-    : string extends C['type'] ? any                         // Short-circuit on broad types
+    : string extends C['type'] ? any                         // Broad types resolve to `any`
     : C extends { type: infer T } ? T extends string ? ({ [K: keyof any]: never } & {
         
         bln:   boolean,
