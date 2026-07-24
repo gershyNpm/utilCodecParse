@@ -1,35 +1,38 @@
-import { assertEqual, testRunner } from '../build/utils.test.ts';
+import { assertEqual, cmpAny, testRunner } from '../build/utils.test.ts';
 import codecParse, { type Codec } from './main.ts';
 
 // Type testing
 (async () => {
   
-  type Enforce<Provided, Expected extends Provided> = { provided: Provided, expected: Expected };
-  
-  const codec1 = { type: 'str', map: (v: string) => v.length } as const;
-  const result1 = codecParse(codec1, 'aaa');
-  
-  const codec2 = {
-    type: 'rec',
-    props: {
-      a: { type: 'str', map: (v: string) => v.length },
-      b: { type: 'num', map: (v: number) => 'a'.repeat(v) },
-      c: { type: 'arr', item: { type: 'bln', map: (v: boolean) => v ? 'ya' : 'no' }, maxLen: 5 }
-    }
-  } as const;
-  const result2 = codecParse(codec2, {
-    a: 'hi',
-    b: 12,
-    c: [ true, false, true, false ]
-  });
+  type Assert<V extends true> = V;
+  type Equal<A, B> = [A] extends [B] ? [B] extends [A] ? true : false : false;
   
   type Tests = {
-    1: Enforce<typeof result1, number>,
-    2: Enforce<typeof result2, {
-      a: number,
-      b: string,
-      c: ('ya' | 'no')[]
-    }>
+    
+    1: Assert<Equal<
+        Codec.Out<{ type: 'str', map: (v: string) => number }>,
+        number
+      >>,
+    
+    2: Assert<Equal<Codec.Out<{ type: 'enum', opts: readonly [ 1, 2 ] }>, 1 | 2>>,
+    3: Assert<Equal<Codec.Out<{ type: 'enum', opts: [1, 2] }>, 1 | 2>>,
+    
+    4: Assert<Equal<
+        Codec.Out<{
+          type: 'rec',
+          props: {
+            a: { type: 'str' },
+            b: { type: 'num', req: false },
+            c: { type: 'arr', req: true, item: { type: 'bln', map: (v) => 'ya' | 'no' } }
+          }
+        }>,
+        {
+          a: string,
+          b: number | undefined,
+          c: ('ya' | 'no')[]
+        }
+      >>
+    
   };
   if (0) ((v?: Tests) => void 0)();
   
@@ -56,7 +59,7 @@ testRunner([
   
   { name: 'recursive', fn: async () => {
     
-    const codec: Codec.Registry = {
+    const codec: Codec.Reg = {
       type: 'map',
       item: { type: 'oneOf', opts: [ { type: 'str' } ] }
     };
@@ -75,8 +78,65 @@ testRunner([
       { a: 'a', b: { c: { d: { e: 'e' } } } }
     );
     
-    // TODO: Test a parsing failure like `{ a: 'a', b: { c: { d: { e: 1 } } } }`
+    assertEqual(
+      cl.safe(() => codecParse(codec, { a: 'a', b: { c: { d: { e: 1 } } } }), err => err),
+      new Error('all options failed')[cl.mod]({
+        args: { c: { d: { e: 1 } } },
+        chain: [ 'b' ],
+        codecParse: true,
+        ctx: {},
+        desc: 'oneOf',
+        errs: [
+          cmpAny,
+          new Error('all options failed')[cl.mod]({
+            args: cmpAny,
+            chain: [ 'b', 'opt(map)', 'c' ],
+            codecParse: cmpAny,
+            ctx: cmpAny,
+            desc: cmpAny,
+            errs: [
+              cmpAny,
+              new Error('all options failed')[cl.mod]({
+                args: cmpAny,
+                chain: [ 'b', 'opt(map)', 'c', 'opt(map)', 'd' ],
+                codecParse: cmpAny,
+                ctx: cmpAny,
+                desc: cmpAny,
+                errs: [
+                  cmpAny,
+                  new Error('all options failed')[cl.mod]({
+                    args: cmpAny,
+                    chain: [ 'b', 'opt(map)', 'c', 'opt(map)', 'd', 'opt(map)', 'e' ],
+                    codecParse: cmpAny,
+                    ctx: cmpAny,
+                    desc: cmpAny,
+                    errs: [
+                      new Error('assert failed')[cl.mod]({
+                        args: cmpAny,
+                        chain: [ 'b', 'opt(map)', 'c', 'opt(map)', 'd', 'opt(map)', 'e', 'opt(str)' ],
+                        codecParse: cmpAny,
+                        ctx: cmpAny,
+                        desc: cmpAny,
+                        fn: cmpAny
+                      }),
+                      new Error('assert failed')[cl.mod]({
+                        args: cmpAny,
+                        chain: [ 'b', 'opt(map)', 'c', 'opt(map)', 'd', 'opt(map)', 'e', 'opt(map)' ],
+                        codecParse: cmpAny,
+                        ctx: cmpAny,
+                        desc: cmpAny,
+                        fn: cmpAny,
+                      }),
+                    ]
+                  })
+                ]
+              })
+            ]
+          }),
+        ]
+      })
+    );
     
-  }},
+  }}
   
 ]);

@@ -2,48 +2,63 @@ import '@gershy/clearing';
 
 export namespace Codec {
   
-  export type Base = { type: string, map?: (val: any) => any };
+  export type Nul                                         = { type: 'nul',   map?: (val: null)                          => any };
+  export type Bln                                         = { type: 'bln',   map?: (val: boolean)                       => any };
+  export type Num                                         = { type: 'num',   map?: (val: number)                        => any }; // TODO: minVal, maxVal
+  export type Str                                         = { type: 'str',   map?: (val: string)                        => any, minLen?: number, maxLen?: number,  };
+  export type Arr<I extends Reg>                          = { type: 'arr',   map?: (val: Out<I>[])                      => any, minLen?: number, maxLen?: number, item: I };
+  export type Map<I extends Reg>                          = { type: 'map',   map?: (val: Obj<Out<I>>)                   => any, minLen?: number, maxLen?: number, item: I };
+  export type Rec<O extends Obj<Reg & { req?: boolean }>> = { type: 'rec',   map?: (val: { [K in keyof O]: Out<O[K]> }) => any, props: O, loose?: boolean /* default false */ };
+  export type Enum<Opts extends readonly Json[]>          = { type: 'enum',  map?: (val: Opts[number])                  => any, opts: Opts };
+  export type OneOf<Opts extends Reg[]>                   = { type: 'oneOf', map?: (val: Out<Opts[number]>)             => any, opts: Opts };
+  export type Any                                         = { type: 'any',   map?: (val: any)                           => any };
   
-  export type Bln                         = Base & { type: 'bln',   map?: (val: boolean)                       => any };
-  export type Num                         = Base & { type: 'num',   map?: (val: number)                        => any }; // TODO: minVal, maxVal
-  export type Str                         = Base & { type: 'str',   map?: (val: string)                        => any, minLen?: number, maxLen?: number,  };
-  export type Arr<I extends Base>         = Base & { type: 'arr',   map?: (val: Out<I>[])                      => any, minLen?: number, maxLen?: number, item: I };
-  export type Map<I extends Base>         = Base & { type: 'map',   map?: (val: Obj<Out<I>>)                   => any, minLen?: number, maxLen?: number, item: I };
-  export type Rec<O extends Obj<Base>>    = Base & { type: 'rec',   map?: (val: { [K in keyof O]: Out<O[K]> }) => any, props: O, loose?: boolean /* default false */ };
-  export type Enum<Opts extends string[]> = Base & { type: 'enum',  map?: (val: Opts[number])                  => any, opts: Opts };
-  export type OneOf<Opts extends Base[]>  = Base & { type: 'oneOf', map?: (val: Out<Opts[number]>)             => any, opts: Opts };
-  export type Any                         = Base & { type: 'any',   map?: (val: any)                           => any };
+  // TODO: the `X<any>` generics kill any deeper typing; codec definitions can't be validated...
+  export type Reg = Nul | Bln | Num | Str | Arr<any> | Map<any> | Rec<any> | Enum<any> | OneOf<any> | Any;
   
-  export type Out<C extends Base> = 0 extends 1 ? never
-    : C extends { map: (val: any) => infer Mapped } ? Mapped
-    : string extends C['type'] ? any                         // Broad types resolve to `any`
-    : C extends { type: infer T } ? T extends string ? ({ [K: keyof any]: never } & {
-        
-        bln:   boolean,
-        num:   number,
-        str:   string,
-        arr:   C extends { item:  infer I } ? I extends Base      ? Out<I>[]                      : never : never,
-        map:   C extends { item:  infer I } ? I extends Base      ? Obj<Out<I>>                   : never : never,
-        rec:   C extends { props: infer P } ? P extends Obj<Base> ? { [K in keyof P]: Out<P[K]> } : never : never,
-        enum:  C extends { opts:  infer O } ? O extends string[]  ? O[number]                     : never : never,
-        oneOf: C extends { opts:  infer O } ? O extends Base[]    ? Out<O[number]>                : never : never,
-        any:   any
-        
-      })[T] : never
+  type RecOut<P extends Obj<Reg>> = P extends Obj<Reg & { req?: boolean }>
+    ? {
+        [K in keyof P]: never
+          | Out<P[K]>
+          | (P[K] extends Reg & { req: false } ? undefined : never)
+      }
     : never;
   
-  // export type Out<C extends Base> = 0 extends 1 ? never
-  //   : C extends { map: (val: any) => infer Mapped } ? Mapped
-  //   : C extends Bln                                 ? boolean
-  //   : C extends Num                                 ? number
-  //   : C extends Str                                 ? string
-  //   : C extends Arr<infer I>                        ? Out<I>[]
-  //   : C extends Map<infer I>                        ? Obj<Out<I>>
-  //   : C extends Rec<infer O>                        ? { [K in keyof O]: Out<O[K]> }
-  //   : C extends Enum<infer Opts>                    ? Opts[number]
-  //   : C extends OneOf<infer Opts>                   ? Out<Opts[number]>
-  //   : C extends Any                                 ? any
-  //   : never;
+  export type Out<C extends Reg> = 0 extends 1 ? never
+    
+    // If there's a mapping function return its value
+    : C extends { map: (val: any) => infer Mapped } ? Mapped
+    
+    // Broad types immediately resolve to `any`
+    : string extends C['type'] ? any
+    
+    : C extends { type: 'nul' }  ? null
+    : C extends { type: 'bln' }  ? boolean
+    : C extends { type: 'num' }  ? number
+    : C extends { type: 'str' }  ? string
+    : C extends { type: 'enum',  opts:  readonly (infer O)[] } ? O
+    : C extends { type: 'arr',   item:  infer I }              ? I extends Reg      ? Out<I>[]    : never
+    : C extends { type: 'map',   item:  infer I }              ? I extends Reg      ? Obj<Out<I>> : never
+    : C extends { type: 'rec',   props: infer P }              ? P extends Obj<Reg> ? RecOut<P>   : never
+    : C extends { type: 'oneOf', opts:  (infer O)[] }          ? O extends Reg      ? Out<O>      : never
+    
+    // // Type lookup
+    // : C extends { type: infer T } ? T extends string ? ({ [K: keyof any]: never } & {
+    //     
+    //     nul:   null,
+    //     bln:   boolean,
+    //     num:   number,
+    //     str:   string,
+    //     enum:  C extends { opts:  readonly (infer O)[] } ? O                                : never,
+    //     arr:   C extends { item:  infer I }              ? I extends Reg      ? Out<I>[]    : never : never,
+    //     map:   C extends { item:  infer I }              ? I extends Reg      ? Obj<Out<I>> : never : never,
+    //     rec:   C extends { props: infer P }              ? P extends Obj<Reg> ? RecOut<P>   : never : never,
+    //     oneOf: C extends { opts:  readonly (infer O)[] } ? O extends Reg      ? Out<O>      : never : never,
+    //     any:   any
+    //     
+    //   })[T] : never
+    
+    : never;
   
   // // Reproduce the variance problem - minimal version from LambdaEdge
   // class MinimalBase<Cdc extends Rec<any>> {
@@ -57,11 +72,9 @@ export namespace Codec {
   // const acceptBase = <T extends MinimalBase<any>>(x: T) => {};
   // acceptBase(new MinimalChild());  // Error: args types incompatible (unknown vs {})
   
-  export type Registry = Bln | Num | Str | Arr<any> | Map<any> | Rec<any> | Enum<any> | OneOf<any> | Any;
-  
 };
 
-export default <C extends Codec.Registry>(codec: C, val: unknown): Codec.Out<C> => {
+export default <C extends Codec.Reg>(codec: C, val: unknown): Codec.Out<C> => {
   
   type AssertArgs<T> = {
     desc: string,
@@ -76,11 +89,16 @@ export default <C extends Codec.Registry>(codec: C, val: unknown): Codec.Out<C> 
     catch (err) { throw (err as Error)[cl.mod]({ codecParse: true, ...args }); }
     
   };
-  const parse = (codec: Codec.Registry, val: unknown, chain: string[], ctx: Obj<any>) => {
+  const parse = (codec: Codec.Reg, val: unknown, chain: string[], ctx: Obj<any>) => {
     
     const checked = (() => {
       
-      if (codec.type === 'bln') {
+      if (codec.type === 'nul') {
+        
+        assert({ desc: 'nul', chain, ctx, args: val, fn: val => val === null });
+        return val;
+        
+      } else if (codec.type === 'bln') {
         
         assert({ desc: 'bln', chain, ctx, args: val, fn: val => cl.isCls(val, Boolean) });
         return val;
@@ -139,21 +157,41 @@ export default <C extends Codec.Registry>(codec: C, val: unknown): Codec.Out<C> 
         
       } else if (codec.type === 'rec') {
         
-        const { props, loose = false } = codec;
+        type Prop = Codec.Reg & { req?: boolean };
+        const { props, loose = false } = codec as Codec.Rec<Obj<Prop>>;
         
         const keys = props[cl.toArr]((v, k) => k);
+        const reqKeys = props[cl.toArr]((v, k) => (v.req ?? true) ? k : cl.skip);
+        // const optKeys = props[cl.toArr]((v, k) => (v.req ?? true) ? cl.skip : k);
         
-        assert({ desc: 'rec', chain, ctx, args: { val, keys, loose }, fn: ({ val, keys, loose }) => true
-          && cl.isCls(val, Object)
-          && (loose || val[cl.count]() === keys[cl.count]())
-          && keys.every(k => val[cl.has](k))
-        });
+        assert({ desc: 'rec.obj', chain, ctx, args: { val }, fn: (args): args is { val: Obj<any> } => cl.isCls(args.val, Object) });
+        assert({ desc: 'rec.req', chain, ctx, args: { val, reqKeys }, fn: ({ val, reqKeys }) => {
+          return reqKeys.every(rk => (val as any)[cl.has](rk));
+        }});
+        
+        if (!loose)
+          assert({ desc: 'rec.tight', chain, ctx, args: { val, keys }, fn: ({ val, keys }) => {
+            return (val as Obj<Prop>)
+              [cl.toArr]((v, k) => k)
+              .every(k => keys.includes(k)); // TODO: O(|val| x |keys|)!!
+          }});
+        
+        // assert({ desc: 'rec', chain, ctx, args: { val, keys, loose }, fn: ({ val, keys, loose }) => true
+        //   && cl.isCls(val, Object)
+        //   && (loose || val[cl.count]() === keys[cl.count]())
+        //   && keys.every(k => val[cl.has](k))
+        // });
+        
         return (val as Obj<any>)[cl.map]((v, k) => {
+          
           return props[cl.has](k)
+            
             // `k` is actually declared in `props`
             ? parse(props[k], v, [ ...chain, k ], ctx)
+            
             // `k` isn't declared in `props` - `loose` must be set to `true`
             : v;
+          
         });
         
       } else if (codec.type === 'oneOf') {
@@ -193,7 +231,7 @@ export default <C extends Codec.Registry>(codec: C, val: unknown): Codec.Out<C> 
     
     if (codec.map) {
       
-      try { return codec.map(checked as any); } catch (err: any) {
+      try { return (codec.map as any)(checked); } catch (err: any) {
         
         if (!err.codecParse) throw err;
         throw err[cl.mod](msg => ({ msg: `map failed (${msg})`, chain, ctx, fn: codec.map }));
